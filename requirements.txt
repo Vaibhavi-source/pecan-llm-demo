@@ -1,0 +1,5 @@
+docling
+anthropic
+pydantic
+pandas
+python-dotenv

@@ -1,4 +1,5 @@
-"__pycache__/" 
-"*.pyc" 
-"output/" 
-"data/papers/*.pdf" 
+__pycache__/
+*.pyc
+output/
+data/papers/*.pdf
+.env

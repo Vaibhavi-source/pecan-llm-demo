@@ -1,9 +1,10 @@
 """
-demo.py - Full pipeline: ingest -> extract -> validate -> export
+demo.py - Full pipeline: ingest -> extract -> validate -> export -> compare -> report
 Usage: python demo.py data/papers/paper.pdf --doi 10.xxxx/xxxxx
 """
 
 import argparse
+import csv
 import sys
 from pathlib import Path
 
@@ -14,6 +15,11 @@ from src.ingest import ingest_pdf
 from src.extract import extract_from_markdown
 from src.validate import validate_extraction
 from src.export import export_results
+from src.compare import compare_with_bety
+from src.summary import generate_report
+
+# DOI for the ground-truth paper used to validate the pipeline
+GROUND_TRUTH_DOI = "10.1111/gcbb.12077"
 
 
 def print_summary(validated_dict: dict, csv_path: Path):
@@ -56,7 +62,7 @@ def print_summary(validated_dict: dict, csv_path: Path):
     print(f"\nTraits/Yields ({len(traits)} observations):")
     print(f"  {'Variable':25s} {'Mean':12s} {'Units':15s} {'Status'}")
     print(f"  {'-'*25} {'-'*12} {'-'*15} {'-'*12}")
-    for trait in traits[:10]:  # show first 10
+    for trait in traits[:10]:
         var = trait.get("variable_name", {})
         mean = trait.get("mean", {})
         units = trait.get("units", {})
@@ -73,12 +79,10 @@ def print_summary(validated_dict: dict, csv_path: Path):
     print(f"\nSample BETYdb CSV rows from {csv_path}:")
     print("-" * 60)
     try:
-        import csv
         with open(csv_path, encoding="utf-8") as f:
             reader = csv.DictReader(f)
             rows = list(reader)
             if rows:
-                # Print header
                 cols = ["variable_name", "mean", "units", "status", "site_name"]
                 print("  " + " | ".join(f"{c:18s}" for c in cols))
                 print("  " + "-" * (len(cols) * 21))
@@ -126,12 +130,29 @@ def main():
     # Step 4: Export
     json_path, csv_path = export_results(validated, doi=args.doi)
 
-    # Step 5: Print summary
+    # Step 5: Print inline summary
     print_summary(validated, csv_path)
 
+    # Step 6: BETYdb accuracy comparison (only for ground-truth DOI)
+    if args.doi == GROUND_TRUTH_DOI:
+        print(f"\n[compare] Running BETYdb ground-truth comparison for DOI {args.doi}...")
+        try:
+            compare_results = compare_with_bety(csv_path, args.doi)
+            acc = compare_results["accuracy"]
+            print(
+                f"\n  Pipeline accuracy vs BETYdb: "
+                f"{acc['matched']}/{acc['total']} ({acc['pct']}%)"
+            )
+        except Exception as e:
+            print(f"  [compare] Skipped: {e}")
+
+    # Step 7: Generate text report
+    report_path = generate_report(validated, doi=args.doi)
+
     print(f"\nOutputs saved:")
-    print(f"  JSON : {json_path}")
-    print(f"  CSV  : {csv_path}")
+    print(f"  JSON   : {json_path}")
+    print(f"  CSV    : {csv_path}")
+    print(f"  Report : {report_path}")
 
 
 if __name__ == "__main__":

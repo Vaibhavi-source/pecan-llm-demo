@@ -26,7 +26,7 @@ def _call_claude(client: anthropic.Anthropic, messages: list, prompt: str) -> tu
     messages.append({"role": "user", "content": prompt})
 
     response = client.messages.create(
-        model="claude-sonnet-4-6",
+        model="claude-sonnet-4-5",
         max_tokens=2048,
         system=SYSTEM_PROMPT,
         messages=messages,
@@ -76,7 +76,7 @@ def extract_from_markdown(markdown: str) -> dict:
     paper_context = f"""Here is a scientific paper in markdown format. Please extract data from it as I ask.
 
 --- PAPER START ---
-{markdown[:12000]}
+{markdown[:20000]}
 --- PAPER END ---
 
 I will ask you to extract specific fields. Respond only with valid JSON."""

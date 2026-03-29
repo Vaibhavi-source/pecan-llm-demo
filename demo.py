@@ -17,6 +17,7 @@ from src.validate import validate_extraction
 from src.export import export_results
 from src.compare import compare_with_bety
 from src.summary import generate_report
+from src.extract_figures import extract_and_analyze_figures
 
 # DOI for the ground-truth paper used to validate the pipeline
 GROUND_TRUTH_DOI = "10.1111/gcbb.12077"
@@ -149,10 +150,49 @@ def main():
     # Step 7: Generate text report
     report_path = generate_report(validated, doi=args.doi)
 
+    # Step 8: Figure extraction
+    print(f"\n[figures] Starting figure extraction and vision analysis...")
+    figure_output_path = Path("output") / "figure_extraction.json"
+    try:
+        figure_results = extract_and_analyze_figures(str(pdf_path))
+        fig_summary = figure_results.get("summary", {})
+
+        # Append figure results to the report
+        try:
+            with open(report_path, "a", encoding="utf-8") as rf:
+                rf.write("\n\nFIGURE EXTRACTION\n")
+                rf.write("-" * 40 + "\n")
+                rf.write(f"  Figures found      : {fig_summary.get('figures_found', 0)}\n")
+                rf.write(f"  Figures analyzed   : {fig_summary.get('figures_analyzed', 0)}\n")
+                rf.write(f"  Total data points  : {fig_summary.get('total_data_points', 0)}\n")
+                status_bd = fig_summary.get("status_breakdown", {})
+                if status_bd:
+                    rf.write("  Status breakdown:\n")
+                    for status, count in sorted(status_bd.items()):
+                        rf.write(f"    {status:12s}: {count}\n")
+                for r in figure_results.get("results", []):
+                    rf.write(f"\n  [{r.get('figure_id','?')}] page {r.get('page','?')}\n")
+                    rf.write(f"    Y: {r.get('y_axis_variable','?')} ({r.get('y_axis_units','')})\n")
+                    rf.write(f"    X: {r.get('x_axis','?')}\n")
+                    series = r.get('series', [])
+                    if series:
+                        rf.write(f"    Series: {', '.join(str(s) for s in series)}\n")
+                    rf.write(f"    Data points: {len(r.get('data_points', []))}\n")
+                rf.write("\n" + "=" * 70 + "\n")
+            print(f"[figures] Figure results appended to {report_path}")
+        except Exception as e:
+            print(f"[figures] Could not append to report: {e}")
+
+    except Exception as e:
+        print(f"[figures] Figure extraction failed: {e}")
+        figure_output_path = None
+
     print(f"\nOutputs saved:")
     print(f"  JSON   : {json_path}")
     print(f"  CSV    : {csv_path}")
     print(f"  Report : {report_path}")
+    if figure_output_path and figure_output_path.exists():
+        print(f"  Figures: {figure_output_path}")
 
 
 if __name__ == "__main__":
